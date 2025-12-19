@@ -25,8 +25,11 @@ export function Calendar({ trades, onDayClick }: CalendarProps) {
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     
-    let startDayOfWeek = firstDay.getDay();
-    startDayOfWeek = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
+    // Use 6-day week (Mon-Sat), skip Sundays
+    let startDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, ...
+    // Adjust so Monday is 0, Saturday is 5, Sunday is skipped
+    startDayOfWeek = (startDayOfWeek + 6) % 7;
+    if (startDayOfWeek === 6) startDayOfWeek = 0; // If Sunday, start at 0 (no empty days)
 
     const weeks: Array<Array<{ day: number | null; stats: typeof dayStats[string] | null }>> = [];
     let currentWeek: Array<{ day: number | null; stats: typeof dayStats[string] | null }> = [];
@@ -36,27 +39,26 @@ export function Calendar({ trades, onDayClick }: CalendarProps) {
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
-  const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-
-  currentWeek.push({ day, stats: dayStats[dateStr] || null });
-
-  // ⬇️ ONLY 6 DAYS (Mon–Sat)
-  if (currentWeek.length === 6) {
-    weeks.push(currentWeek);
-    currentWeek = [];
-  }
-}
-
-   if (currentWeek.length > 0) {
-  const hasAnyDay = currentWeek.some(d => d.day !== null);
-
-  if (hasAnyDay) {
-    while (currentWeek.length < 6) {
-      currentWeek.push({ day: null, stats: null });
+      const dateObj = new Date(year, month, day);
+      const jsDay = dateObj.getDay();
+      if (jsDay === 0) continue; // Skip Sundays
+      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      currentWeek.push({ day, stats: dayStats[dateStr] || null });
+      if (currentWeek.length === 6) {
+        weeks.push(currentWeek);
+        currentWeek = [];
+      }
     }
-    weeks.push(currentWeek);
-  }
-}
+
+    if (currentWeek.length > 0) {
+      const hasAnyDay = currentWeek.some(d => d.day !== null);
+      if (hasAnyDay) {
+        while (currentWeek.length < 6) {
+          currentWeek.push({ day: null, stats: null });
+        }
+        weeks.push(currentWeek);
+      }
+    }
 
     return weeks;
   }, [year, month, dayStats]);
