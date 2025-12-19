@@ -10,6 +10,7 @@ import Trades from "@/pages/Trades";
 import Analytics from "@/pages/Analytics";
 import AdvancedAnalytics from "@/pages/AdvancedAnalytics";
 import Settings from "@/pages/Settings";
+import Mistakes from "./pages/Mistakes";
 
 function TradingJournalApp() {
   const [currentPage, setCurrentPage] = useState("dashboard");
@@ -22,6 +23,8 @@ function TradingJournalApp() {
         return <Trades />;
       case "analytics":
         return <Analytics />;
+        case "mistakes":
+        return <Mistakes />;
       case "advanced":
         return <AdvancedAnalytics />;
       case "settings":

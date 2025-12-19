@@ -1,5 +1,5 @@
-import { useMemo, useEffect, useRef } from "react";
-import { useTrades } from "@/contexts/TradeContext";
+import { useMemo, useEffect, useRef, useState } from "react";
+import { useTradeContext } from "@/contexts/TradeContext";
 import { TradingCard } from "@/components/TradingCard";
 
 declare global {
@@ -9,7 +9,77 @@ declare global {
 }
 
 export default function Analytics() {
-  const { trades } = useTrades();
+  const { trades } = useTradeContext();
+
+  const [timeFilter, setTimeFilter] = useState<"all" | "week" | "month" | "custom">("all");
+  const [customFrom, setCustomFrom] = useState<string>("");
+  const [customTo, setCustomTo] = useState<string>("");
+
+  // persist filter selection
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('tj_analytics_time_filter');
+      const f = (saved as any) || '';
+      if (f === 'week' || f === 'month' || f === 'custom' || f === 'all') setTimeFilter(f);
+      const sf = localStorage.getItem('tj_analytics_from');
+      const st = localStorage.getItem('tj_analytics_to');
+      if (sf) setCustomFrom(sf);
+      if (st) setCustomTo(st);
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tj_analytics_time_filter', timeFilter);
+      if (customFrom) localStorage.setItem('tj_analytics_from', customFrom);
+      else localStorage.removeItem('tj_analytics_from');
+      if (customTo) localStorage.setItem('tj_analytics_to', customTo);
+      else localStorage.removeItem('tj_analytics_to');
+    } catch (e) {}
+  }, [timeFilter, customFrom, customTo]);
+
+  const filteredTrades = useMemo(() => {
+    if (!trades || trades.length === 0) return [] as typeof trades;
+    const now = new Date();
+
+    let start: Date | null = null;
+    let end: Date | null = null;
+
+    if (timeFilter === "week") {
+      // start of current week (Monday)
+      const d = new Date(now);
+      const day = d.getDay();
+      const diff = (day + 6) % 7; // days since Monday
+      d.setDate(d.getDate() - diff);
+      d.setHours(0,0,0,0);
+      start = d;
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23,59,59,999);
+    } else if (timeFilter === "month") {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      start.setHours(0,0,0,0);
+      end = new Date(now.getFullYear(), now.getMonth()+1, 0, 23,59,59,999);
+    } else if (timeFilter === "custom") {
+      if (customFrom) {
+        const f = new Date(customFrom);
+        f.setHours(0,0,0,0);
+        start = f;
+      }
+      if (customTo) {
+        const t = new Date(customTo);
+        t.setHours(23,59,59,999);
+        end = t;
+      }
+    }
+
+    return trades.filter(t => {
+      if (!start && !end) return true; // all
+      if (!t.date) return false;
+      const td = new Date(t.date);
+      if (start && td < start) return false;
+      if (end && td > end) return false;
+      return true;
+    });
+  }, [trades, timeFilter, customFrom, customTo]);
 
   const sessionRef = useRef<HTMLCanvasElement>(null);
   const modelRef = useRef<HTMLCanvasElement>(null);
@@ -20,7 +90,7 @@ export default function Analytics() {
 
   const sessionData = useMemo(() => {
     const buckets: Record<string, { wins: number; losses: number; bes: number }> = {};
-    trades.forEach(t => {
+    filteredTrades.forEach(t => {
       const key = t.session || "Unknown";
       if (!buckets[key]) buckets[key] = { wins: 0, losses: 0, bes: 0 };
       if (t.realisedR > 0.0001) buckets[key].wins++;
@@ -34,11 +104,11 @@ export default function Analytics() {
       return total > 0 ? (b.wins / total) * 100 : 0;
     });
     return { labels, winRates };
-  }, [trades]);
+  }, [filteredTrades]);
 
   const modelData = useMemo(() => {
     const buckets: Record<string, { wins: number; losses: number; bes: number }> = {};
-    trades.forEach(t => {
+    filteredTrades.forEach(t => {
       const key = t.model || "Unknown";
       if (!buckets[key]) buckets[key] = { wins: 0, losses: 0, bes: 0 };
       if (t.realisedR > 0.0001) buckets[key].wins++;
@@ -52,11 +122,11 @@ export default function Analytics() {
       return total > 0 ? (b.wins / total) * 100 : 0;
     });
     return { labels, winRates };
-  }, [trades]);
+  }, [filteredTrades]);
 
   const gradeData = useMemo(() => {
     const buckets: Record<string, { wins: number; losses: number; bes: number }> = {};
-    trades.forEach(t => {
+    filteredTrades.forEach(t => {
       const key = t.setupGrade || "Unknown";
       if (!buckets[key]) buckets[key] = { wins: 0, losses: 0, bes: 0 };
       if (t.realisedR > 0.0001) buckets[key].wins++;
@@ -70,18 +140,18 @@ export default function Analytics() {
       return total > 0 ? (b.wins / total) * 100 : 0;
     });
     return { labels, winRates };
-  }, [trades]);
+  }, [filteredTrades]);
 
   const symbolData = useMemo(() => {
     const buckets: Record<string, number> = {};
-    trades.forEach(t => {
+    filteredTrades.forEach(t => {
       const key = t.symbol || "Unknown";
       buckets[key] = (buckets[key] || 0) + (t.realisedR || 0);
     });
     const labels = Object.keys(buckets);
     const totals = labels.map(k => buckets[k]);
     return { labels, totals };
-  }, [trades]);
+  }, [filteredTrades]);
 
   useEffect(() => {
     if (typeof window.Chart === "undefined") return;
@@ -102,18 +172,21 @@ export default function Analytics() {
         }
       },
       scales: {
-        y: { 
+        y: {
           beginAtZero: true,
           max: 100,
-          grid: { color: "rgba(37, 37, 37, 0.5)" },
-          ticks: { color: "#888888", font: { size: 10 } }
-        },
-        x: { 
           grid: { display: false },
-          ticks: { color: "#888888", font: { size: 10 } }
+          ticks: { color: "#9b9b9b", font: { size: 10 } }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: "#9b9b9b", font: { size: 10 } }
         }
       }
     };
+
+    // unified accent colors
+    const accent = 'rgba(79,195,247,';
 
     if (sessionRef.current) {
       if (chartRefs.current.session) chartRefs.current.session.destroy();
@@ -124,8 +197,8 @@ export default function Analytics() {
           datasets: [{
             label: "Win Rate %",
             data: sessionData.winRates,
-            backgroundColor: "rgba(79, 195, 247, 0.7)",
-            borderColor: "rgba(79, 195, 247, 1)",
+            backgroundColor: `${accent}0.7)`,
+            borderColor: `${accent}1)` ,
             borderWidth: 1,
             borderRadius: 4,
           }]
@@ -143,8 +216,8 @@ export default function Analytics() {
           datasets: [{
             label: "Win Rate %",
             data: modelData.winRates,
-            backgroundColor: "rgba(255, 158, 206, 0.7)",
-            borderColor: "rgba(255, 158, 206, 1)",
+            backgroundColor: `${accent}0.6)`,
+            borderColor: `${accent}0.95)` ,
             borderWidth: 1,
             borderRadius: 4,
           }]
@@ -162,8 +235,8 @@ export default function Analytics() {
           datasets: [{
             label: "Win Rate %",
             data: gradeData.winRates,
-            backgroundColor: "rgba(255, 215, 110, 0.7)",
-            borderColor: "rgba(255, 215, 110, 1)",
+            backgroundColor: `${accent}0.5)`,
+            borderColor: `${accent}0.9)` ,
             borderWidth: 1,
             borderRadius: 4,
           }]
@@ -213,6 +286,47 @@ export default function Analytics() {
         <p className="text-[0.82rem] text-[#b8b8b8]">
           Performance breakdown by session, model, grade, and symbol
         </p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <button className={`filter-pill ${timeFilter === 'week' ? 'active' : ''}`} onClick={() => setTimeFilter('week')}>This Week</button>
+          <button className={`filter-pill ${timeFilter === 'month' ? 'active' : ''}`} onClick={() => setTimeFilter('month')}>This Month</button>
+          <button className={`filter-pill ${timeFilter === 'all' ? 'active' : ''}`} onClick={() => setTimeFilter('all')}>All Time</button>
+          <button className={`filter-pill ${timeFilter === 'custom' ? 'active' : ''}`} onClick={() => setTimeFilter('custom')}>Custom</button>
+        </div>
+
+        {timeFilter === 'custom' && (
+          <div className="flex items-center gap-2">
+            <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="bg-[#0a0a0a] border border-[rgba(60,60,60,0.95)] rounded-xl px-3 py-2 text-[0.82rem]" />
+            <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="bg-[#0a0a0a] border border-[rgba(60,60,60,0.95)] rounded-xl px-3 py-2 text-[0.82rem]" />
+            <button className="btn-ghost-trading" onClick={() => { /* no-op; changes are reactive */ }}>Apply</button>
+          </div>
+        )}
+      </div>
+      <div className="text-[0.82rem] text-[#b8b8b8]">
+        {(() => {
+          if (timeFilter === 'all') return 'Showing: All time';
+          const fmt = (d?: string) => d || '--';
+          if (timeFilter === 'week') {
+            const now = new Date();
+            const day = now.getDay();
+            const diff = (day + 6) % 7;
+            const start = new Date(now);
+            start.setDate(now.getDate() - diff);
+            start.setHours(0,0,0,0);
+            return `Showing: ${start.toISOString().slice(0,10)} → ${now.toISOString().slice(0,10)}`;
+          }
+          if (timeFilter === 'month') {
+            const now = new Date();
+            const start = new Date(now.getFullYear(), now.getMonth(), 1);
+            return `Showing: ${start.toISOString().slice(0,10)} → ${now.toISOString().slice(0,10)}`;
+          }
+          if (timeFilter === 'custom') {
+            return `Showing: ${fmt(customFrom)} → ${fmt(customTo)}`;
+          }
+          return null;
+        })()}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

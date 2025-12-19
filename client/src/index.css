@@ -228,6 +228,27 @@
   color: #ffffff;
 }
 
+/* Modal scrollbar styling to match dark theme */
+.modal-scrollbar {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(255,255,255,0.08) transparent; /* thumb track */
+}
+.modal-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.modal-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modal-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.modal-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+}
+
 .stat-card-trading {
   background: rgba(10, 10, 10, 0.96);
   border-radius: 16px;

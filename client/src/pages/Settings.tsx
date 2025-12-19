@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X, Plus, Trash2, AlertTriangle } from "lucide-react";
-import { useTrades } from "@/contexts/TradeContext";
+import { useTradeContext } from "@/contexts/TradeContext";
 import { TradingCard } from "@/components/TradingCard";
 
 type SettingsKey = "accounts" | "models" | "sessions" | "entryTFs" | "setupGrades" | "keyLevels" | "mistakes";
@@ -16,7 +16,7 @@ const SETTINGS_CONFIG: { key: SettingsKey; label: string }[] = [
 ];
 
 export default function Settings() {
-  const { settings, updateSettings, resetSettings, clearAllTrades, fullReset } = useTrades();
+  const { settings, updateSettings, resetSettings, clearAllTrades, fullReset } = useTradeContext();
   const [editingKey, setEditingKey] = useState<SettingsKey | null>(null);
   const [editValues, setEditValues] = useState<string[]>([]);
 

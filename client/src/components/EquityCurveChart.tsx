@@ -29,8 +29,8 @@ export function EquityCurveChart({ trades }: EquityCurveChartProps) {
     if (!ctx) return;
 
     const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-    gradient.addColorStop(0, "rgba(79, 195, 247, 0.4)");
-    gradient.addColorStop(1, "rgba(79, 195, 247, 0.02)");
+gradient.addColorStop(0, "rgba(0, 210, 138, 0.35)");
+gradient.addColorStop(1, "rgba(0, 210, 138, 0.04)");
 
     chartRef.current = new window.Chart(ctx, {
       type: "line",
@@ -39,20 +39,25 @@ export function EquityCurveChart({ trades }: EquityCurveChartProps) {
         datasets: [{
           label: "Cumulative R",
           data: data.map(d => d.y),
-          borderColor: "#4fc3f7",
+          borderColor: "#00d28a",
           backgroundColor: gradient,
           fill: true,
           tension: 0.3,
-          pointRadius: 2,
-          pointHoverRadius: 5,
-          pointBackgroundColor: "#4fc3f7",
-          pointBorderColor: "#4fc3f7",
+          pointRadius: 0,
+          pointHoverRadius: 0,
           borderWidth: 2,
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        layout: {
+  padding: {
+    top: 0,
+    bottom: 0,
+  },
+},
+
         interaction: {
           intersect: false,
           mode: "index",
@@ -63,7 +68,7 @@ export function EquityCurveChart({ trades }: EquityCurveChartProps) {
             backgroundColor: "rgba(5, 5, 5, 0.95)",
             titleColor: "#ffffff",
             bodyColor: "#b8b8b8",
-            borderColor: "rgba(79, 195, 247, 0.5)",
+            borderColor: "rgba(0, 210, 138, 0.5)",
             borderWidth: 1,
             padding: 10,
             cornerRadius: 8,
@@ -91,6 +96,7 @@ export function EquityCurveChart({ trades }: EquityCurveChartProps) {
           },
           y: {
             display: true,
+            grace: 0,
             grid: { 
               color: "rgba(37, 37, 37, 0.5)",
               drawBorder: false,
@@ -121,7 +127,7 @@ export function EquityCurveChart({ trades }: EquityCurveChartProps) {
   }
 
   return (
-    <div className="h-[220px] mt-1.5">
+    <div className="h-[250px]">
       <canvas ref={canvasRef} data-testid="equity-curve-chart" />
     </div>
   );

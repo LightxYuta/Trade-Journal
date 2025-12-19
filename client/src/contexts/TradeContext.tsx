@@ -95,10 +95,10 @@ export function TradeProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useTrades() {
+export function useTradeContext() {
   const context = useContext(TradeContext);
-  if (context === undefined) {
-    throw new Error("useTrades must be used within a TradeProvider");
+  if (!context) {
+    throw new Error("useTradeContext must be used within a TradeProvider");
   }
   return context;
 }

@@ -1,12 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Plus, X, Filter, Trash2, Edit2 } from "lucide-react";
-import { useTrades } from "@/contexts/TradeContext";
+import { useTradeContext } from "@/contexts/TradeContext";
 import { TradingCard } from "@/components/TradingCard";
 import { classifyOutcome, formatDate, formatR } from "@/lib/tradeUtils";
 import type { Trade } from "@shared/schema";
 
 export default function Trades() {
-  const { trades, settings, addTrade, deleteTrade } = useTrades();
+  const { trades, settings, addTrade, updateTrade, deleteTrade } = useTradeContext();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [filterSession, setFilterSession] = useState("");
   const [filterModel, setFilterModel] = useState("");
@@ -30,11 +32,13 @@ export default function Trades() {
     keyLevels: [] as string[],
     mistakes: [] as string[],
     screenshots: "",
+    screenshots1: "",
+    screenshots2: "",
     notes: "",
   });
 
   const filteredTrades = useMemo(() => {
-    return trades.filter(t => {
+    const result = trades.filter(t => {
       if (filterSession && t.session !== filterSession) return false;
       if (filterModel && t.model !== filterModel) return false;
       if (filterAccount && t.account !== filterAccount) return false;
@@ -42,6 +46,19 @@ export default function Trades() {
       if (filterFrom && t.date && t.date < filterFrom) return false;
       if (filterTo && t.date && t.date > filterTo) return false;
       return true;
+    });
+
+    // show newest trades first by trade `date` (newest date first),
+    // fall back to `createdAt` when `date` is missing or equal
+    return result.slice().sort((a, b) => {
+      const ad = a.date || '';
+      const bd = b.date || '';
+      if (ad && bd) {
+        // dates are stored as ISO-like strings (YYYY-MM-DD), so lexicographic compare works
+        const cmp = bd.localeCompare(ad);
+        if (cmp !== 0) return cmp;
+      }
+      return (b.createdAt || 0) - (a.createdAt || 0);
     });
   }, [trades, filterSession, filterModel, filterAccount, filterPosition, filterFrom, filterTo]);
 
@@ -83,7 +100,7 @@ export default function Trades() {
       if (!isNaN(parsed)) maxR = parsed;
     }
 
-    addTrade({
+    const payload = {
       date: formData.date,
       symbol: formData.symbol.toUpperCase(),
       account: formData.account,
@@ -97,10 +114,30 @@ export default function Trades() {
       setupGrade: formData.setupGrade,
       keyLevels: formData.keyLevels,
       mistakes: formData.mistakes,
-      screenshots: formData.screenshots,
+      screenshots: (() => {
+        const a = (formData.screenshots1 || '').trim();
+        const b = (formData.screenshots2 || '').trim();
+        const arr = [] as string[];
+        if (a) arr.push(a);
+        if (b) arr.push(b);
+        if (arr.length === 0) return '';
+        return JSON.stringify(arr);
+      })(),
       notes: formData.notes,
-      createdAt: Date.now(),
-    });
+    };
+
+    if (editingId) {
+      try {
+        updateTrade(editingId, { ...payload });
+      } catch (err) {
+        console.error('Failed to update trade', err);
+        alert('Failed to update trade');
+        return;
+      }
+      setEditingId(null);
+    } else {
+      addTrade({ ...payload, createdAt: Date.now() });
+    }
 
     setFormData({
       ...formData,
@@ -110,6 +147,8 @@ export default function Trades() {
       riskPercent: "",
       notes: "",
       screenshots: "",
+      screenshots1: "",
+      screenshots2: "",
       keyLevels: [],
       mistakes: [],
     });
@@ -122,6 +161,47 @@ export default function Trades() {
     }
   };
 
+  const handleEdit = (t: Trade) => {
+    setEditingId(t.id);
+    setFormData({
+      date: t.date || new Date().toISOString().split("T")[0],
+      symbol: t.symbol || "",
+      account: t.account || "",
+      model: t.model || "",
+      session: t.session || "",
+      entryTF: t.entryTF || "",
+      position: t.position || "Long",
+      riskPercent: t.riskPercent != null ? String(t.riskPercent) : "",
+      realisedR: String(t.realisedR ?? ""),
+      maxR: t.maxR != null ? String(t.maxR) : "",
+      setupGrade: t.setupGrade || "",
+      keyLevels: Array.isArray(t.keyLevels) ? t.keyLevels : [],
+      mistakes: Array.isArray(t.mistakes) ? t.mistakes : [],
+      screenshots: t.screenshots || "",
+      screenshots1: (() => {
+        try {
+          if (!t.screenshots) return '';
+          const parsed = JSON.parse(t.screenshots);
+          if (Array.isArray(parsed)) return parsed[0] || '';
+        } catch (e) {
+          return String(t.screenshots || '');
+        }
+        return '';
+      })(),
+      screenshots2: (() => {
+        try {
+          if (!t.screenshots) return '';
+          const parsed = JSON.parse(t.screenshots);
+          if (Array.isArray(parsed)) return parsed[1] || '';
+        } catch (e) {
+          return '';
+        }
+      })(),
+      notes: t.notes || "",
+    });
+    setIsFormOpen(true);
+  };
+
   const toggleTag = (field: "keyLevels" | "mistakes", value: string) => {
     setFormData(prev => {
       const arr = prev[field];
@@ -130,6 +210,184 @@ export default function Trades() {
       }
       return { ...prev, [field]: [...arr, value] };
     });
+  };
+
+  const normalizeHref = (val?: string) => {
+    if (!val) return '';
+    const v = val.trim();
+    if (!v) return '';
+    if (/^https?:\/\//i.test(v)) return v;
+    return `https://${v}`;
+  };
+
+  function parseCSVLine(line: string): string[] {
+    const result: string[] = [];
+    let curr = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          curr += '"';
+          i++; // skip escaped quote
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+      if (ch === ',' && !inQuotes) {
+        result.push(curr);
+        curr = "";
+        continue;
+      }
+      curr += ch;
+    }
+    result.push(curr);
+    return result;
+  }
+
+  const exportCSV = () => {
+    if (!trades || trades.length === 0) {
+      alert("No trades to export.");
+      return;
+    }
+
+    const headers = [
+      "id",
+      "date",
+      "symbol",
+      "account",
+      "model",
+      "session",
+      "entryTF",
+      "position",
+      "riskPercent",
+      "realisedR",
+      "maxR",
+      "setupGrade",
+      "keyLevels",
+      "mistakes",
+      // keep original `screenshots` field for backwards compatibility
+      "screenshots",
+      // new explicit columns for two screenshot links
+      "screenshot1",
+      "screenshot2",
+      "notes",
+      "createdAt",
+    ];
+
+    const rows = trades.map(t => {
+      // build screenshot columns from stored `t.screenshots`
+      let scrArr: string[] = [];
+      if ((t as any).screenshots) {
+        try {
+          const parsed = JSON.parse((t as any).screenshots);
+          if (Array.isArray(parsed)) scrArr = parsed.map(String);
+          else if (typeof parsed === 'string') scrArr = [parsed];
+        } catch (e) {
+          scrArr = [String((t as any).screenshots)];
+        }
+      }
+      const screenshot1 = scrArr[0] || '';
+      const screenshot2 = scrArr[1] || '';
+
+      return headers
+        .map(h => {
+          if (h === 'screenshot1') {
+            return `"${String(screenshot1).replace(/"/g, '""')}"`;
+          }
+          if (h === 'screenshot2') {
+            return `"${String(screenshot2).replace(/"/g, '""')}"`;
+          }
+
+          const v = (t as any)[h];
+          if (v === null || v === undefined) return "";
+          if (Array.isArray(v)) return `"${String(v.join(';')).replace(/"/g, '""')}"`;
+          return `"${String(v).replace(/"/g, '""')}"`;
+        })
+        .join(',');
+    });
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `trades_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || '');
+      const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+      if (lines.length === 0) return;
+      const headers = parseCSVLine(lines[0]).map(h => h.trim().replace(/^"|"$/g, ''));
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        const obj: any = {};
+        headers.forEach((h, idx) => {
+          const raw = values[idx] ?? '';
+          obj[h] = raw.replace(/^"|"$/g, '').trim();
+        });
+
+        // Prefer explicit screenshot1/screenshot2 columns if present, else fall back to screenshots column
+        let screenshotsFinal = '';
+        const s1 = (obj.screenshot1 || '').trim();
+        const s2 = (obj.screenshot2 || '').trim();
+        if (s1 || s2) {
+          const arr: string[] = [];
+          if (s1) arr.push(s1);
+          if (s2) arr.push(s2);
+          screenshotsFinal = JSON.stringify(arr);
+        } else if (obj.screenshots) {
+          // if screenshots column contains JSON array/string, normalize
+          try {
+            const parsed = JSON.parse(obj.screenshots);
+            if (Array.isArray(parsed)) screenshotsFinal = JSON.stringify(parsed.map(String));
+            else if (typeof parsed === 'string' && obj.screenshots.trim()) screenshotsFinal = JSON.stringify([obj.screenshots.trim()]);
+          } catch (e) {
+            if (obj.screenshots.trim()) screenshotsFinal = JSON.stringify([obj.screenshots.trim()]);
+          }
+        }
+
+        const tradeToAdd: any = {
+          date: obj.date || '',
+          symbol: (obj.symbol || '').toUpperCase(),
+          account: obj.account || '',
+          model: obj.model || '',
+          session: obj.session || '',
+          entryTF: obj.entryTF || '',
+          position: obj.position || 'Long',
+          riskPercent: obj.riskPercent ? parseFloat(obj.riskPercent) : null,
+          realisedR: obj.realisedR ? parseFloat(obj.realisedR) : 0,
+          maxR: obj.maxR ? parseFloat(obj.maxR) : undefined,
+          setupGrade: obj.setupGrade || '',
+          keyLevels: obj.keyLevels ? obj.keyLevels.split(';').map((s: string) => s.trim()).filter(Boolean) : [],
+          mistakes: obj.mistakes ? obj.mistakes.split(';').map((s: string) => s.trim()).filter(Boolean) : [],
+          screenshots: screenshotsFinal,
+          notes: obj.notes || '',
+          createdAt: obj.createdAt ? parseInt(obj.createdAt) : Date.now(),
+        };
+
+        try {
+          addTrade(tradeToAdd);
+        } catch (err) {
+          console.error('Failed to import trade', err, tradeToAdd);
+        }
+      }
+
+      alert('Import completed');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -141,14 +399,60 @@ export default function Trades() {
             {trades.length} total trade{trades.length === 1 ? "" : "s"} logged
           </p>
         </div>
-        <button
-          onClick={() => setIsFormOpen(true)}
-          className="btn-trading"
-          data-testid="button-add-trade"
-        >
-          <Plus className="w-4 h-4" />
-          Add Trade
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportCSV}
+            className="btn-ghost-trading text-[0.78rem]"
+            data-testid="button-export-trades"
+          >
+            Export
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="btn-ghost-trading text-[0.78rem]"
+            data-testid="button-import-trades"
+          >
+            Import
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={handleFile}
+            style={{ display: "none" }}
+            data-testid="input-import-file"
+          />
+          <button
+            onClick={() => {
+              setEditingId(null);
+              setFormData({
+                date: new Date().toISOString().split("T")[0],
+                symbol: "",
+                account: "",
+                model: "",
+                session: "",
+                entryTF: "",
+                position: "Long",
+                riskPercent: "",
+                realisedR: "",
+                maxR: "",
+                setupGrade: "",
+                keyLevels: [] as string[],
+                mistakes: [] as string[],
+                screenshots: "",
+                screenshots1: "",
+                screenshots2: "",
+                notes: "",
+              });
+              setIsFormOpen(true);
+            }}
+            className="btn-trading"
+            data-testid="button-add-trade"
+          >
+            <Plus className="w-4 h-4" />
+            Add Trade
+          </button>
+        </div>
       </div>
 
       <TradingCard 
@@ -248,14 +552,15 @@ export default function Trades() {
                 <th className="pb-2 pr-3">Model</th>
                 <th className="pb-2 pr-3">Session</th>
                 <th className="pb-2 pr-3">Grade</th>
-                <th className="pb-2 pr-3">Notes</th>
+                  <th className="pb-2 pr-3">Screenshot</th>
+                  <th className="pb-2 pr-3">Notes</th>
                 <th className="pb-2">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredTrades.length === 0 ? (
+                {filteredTrades.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-8 text-center text-[#b8b8b8]">
+                  <td colSpan={13} className="py-8 text-center text-[#b8b8b8]">
                     No trades match the current filters. Add trades or clear filters.
                   </td>
                 </tr>
@@ -287,8 +592,30 @@ export default function Trades() {
                       <td className="py-2 pr-3 text-[#b8b8b8]">{t.model}</td>
                       <td className="py-2 pr-3 text-[#b8b8b8]">{t.session}</td>
                       <td className="py-2 pr-3">{t.setupGrade}</td>
+                      <td className="py-2 pr-3">
+                        {t.screenshots ? (
+                          <a
+                            href={normalizeHref(t.screenshots)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#7cc0ff] underline"
+                            data-testid={`screenshot-link-${t.id}`}
+                          >
+                            View
+                          </a>
+                        ) : (
+                          <span className="text-[#6b6b6b]">—</span>
+                        )}
+                      </td>
                       <td className="py-2 pr-3 text-[#b8b8b8] max-w-[150px] truncate">{t.notes}</td>
                       <td className="py-2">
+                        <button
+                          onClick={() => handleEdit(t)}
+                          className="text-[#ffd76e] p-1 mr-1"
+                          data-testid={`edit-trade-${t.id}`}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleDelete(t.id)}
                           className="text-[#ff4f4f] p-1"
@@ -309,18 +636,18 @@ export default function Trades() {
       {isFormOpen && (
         <div 
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-          onClick={(e) => e.target === e.currentTarget && setIsFormOpen(false)}
+          onClick={(e) => e.target === e.currentTarget && (setIsFormOpen(false), setEditingId(null))}
         >
           <div 
-            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[22px] border border-[rgba(40,40,40,0.95)] p-5"
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[22px] border border-[rgba(40,40,40,0.95)] p-5 modal-scrollbar"
             style={{
               background: "radial-gradient(circle at top left, #161616 0, #050505 45%, #020202 100%)",
               boxShadow: "0 18px 45px rgba(0, 0, 0, 0.9)",
             }}
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold uppercase tracking-wide">Log New Trade</h2>
-              <button onClick={() => setIsFormOpen(false)} className="text-[#b8b8b8]" data-testid="close-form">
+              <h2 className="text-lg font-semibold uppercase tracking-wide">{editingId ? 'Edit Trade' : 'Log New Trade'}</h2>
+              <button onClick={() => (setIsFormOpen(false), setEditingId(null))} className="text-[#b8b8b8]" data-testid="close-form">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -484,6 +811,30 @@ export default function Trades() {
               </div>
 
               <div>
+                <label className="text-[0.72rem] text-[#b8b8b8] uppercase tracking-wide block mb-1">Screenshot 1</label>
+                <input
+                  type="text"
+                  value={formData.screenshots1}
+                  onChange={(e) => setFormData({ ...formData, screenshots1: e.target.value })}
+                  placeholder="Paste TradingView or image URL"
+                  className="w-full bg-[#0a0a0a] border border-[rgba(60,60,60,0.95)] rounded-xl px-3 py-2 text-[0.85rem]"
+                  data-testid="input-screenshot-1"
+                />
+              </div>
+
+              <div>
+                <label className="text-[0.72rem] text-[#b8b8b8] uppercase tracking-wide block mb-1">Screenshot 2</label>
+                <input
+                  type="text"
+                  value={formData.screenshots2}
+                  onChange={(e) => setFormData({ ...formData, screenshots2: e.target.value })}
+                  placeholder="Optional second link"
+                  className="w-full bg-[#0a0a0a] border border-[rgba(60,60,60,0.95)] rounded-xl px-3 py-2 text-[0.85rem]"
+                  data-testid="input-screenshot-2"
+                />
+              </div>
+
+              <div>
                 <label className="text-[0.72rem] text-[#b8b8b8] uppercase tracking-wide block mb-1">Notes</label>
                 <textarea
                   value={formData.notes}
@@ -497,11 +848,11 @@ export default function Trades() {
               <div className="flex gap-2 pt-2">
                 <button type="submit" className="btn-trading flex-1" data-testid="button-submit-trade">
                   <Plus className="w-4 h-4" />
-                  Log Trade
+                  {editingId ? 'Update Trade' : 'Log Trade'}
                 </button>
                 <button 
                   type="button" 
-                  onClick={() => setIsFormOpen(false)} 
+                  onClick={() => (setIsFormOpen(false), setEditingId(null))} 
                   className="btn-ghost-trading flex-1"
                   data-testid="button-cancel"
                 >

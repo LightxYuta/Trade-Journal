@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useTrades } from "@/contexts/TradeContext";
+import { useTradeContext } from "@/contexts/TradeContext";
 import { TradingCard } from "@/components/TradingCard";
 import { StatCard } from "@/components/StatCard";
 import { FilterPills } from "@/components/FilterPills";
@@ -30,7 +30,7 @@ const VIEW_OPTIONS = [
 ];
 
 export default function AdvancedAnalytics() {
-  const { trades } = useTrades();
+  const { trades } = useTradeContext();
   const [filter, setFilter] = useState("all");
   const [view, setView] = useState("dayOfWeek");
 

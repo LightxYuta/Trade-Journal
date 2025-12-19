@@ -5,6 +5,7 @@ import { getDayStats, classifyOutcome } from "@/lib/tradeUtils";
 
 interface CalendarProps {
   trades: Trade[];
+  onDayClick?: (date: string) => void;
 }
 
 const MONTH_NAMES = [
@@ -12,7 +13,7 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December"
 ];
 
-export function Calendar({ trades }: CalendarProps) {
+export function Calendar({ trades, onDayClick }: CalendarProps) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -35,21 +36,27 @@ export function Calendar({ trades }: CalendarProps) {
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-      currentWeek.push({ day, stats: dayStats[dateStr] || null });
+  const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
-      if (currentWeek.length === 7) {
-        weeks.push(currentWeek);
-        currentWeek = [];
-      }
-    }
+  currentWeek.push({ day, stats: dayStats[dateStr] || null });
 
-    if (currentWeek.length > 0) {
-      while (currentWeek.length < 7) {
-        currentWeek.push({ day: null, stats: null });
-      }
-      weeks.push(currentWeek);
+  // ⬇️ ONLY 6 DAYS (Mon–Sat)
+  if (currentWeek.length === 6) {
+    weeks.push(currentWeek);
+    currentWeek = [];
+  }
+}
+
+   if (currentWeek.length > 0) {
+  const hasAnyDay = currentWeek.some(d => d.day !== null);
+
+  if (hasAnyDay) {
+    while (currentWeek.length < 6) {
+      currentWeek.push({ day: null, stats: null });
     }
+    weeks.push(currentWeek);
+  }
+}
 
     return weeks;
   }, [year, month, dayStats]);
@@ -131,12 +138,19 @@ export function Calendar({ trades }: CalendarProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-8 gap-1.5">
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Week"].map(day => (
-          <div key={day} className="text-[0.7rem] text-[#b8b8b8] uppercase tracking-wide text-center py-1">
-            {day}
-          </div>
-        ))}
+<div className="grid grid-cols-[repeat(6,minmax(0,1fr))_minmax(0,1.3fr)] gap-1.5 mb-1">
+  {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Week"].map(day => (
+    <div
+      key={day}
+      className="text-[0.7rem] text-[#b8b8b8] uppercase tracking-wide text-center"
+    >
+      {day}
+    </div>
+  ))}
+</div>
+
+      <div className="grid grid-cols-[repeat(6,minmax(0,1fr))_minmax(0,1.3fr)] gap-1.5">
+    
 
         {calendarData.map((week, weekIdx) => {
           const weekStats = week.reduce(
@@ -170,10 +184,18 @@ export function Calendar({ trades }: CalendarProps) {
 
                 return (
                   <div
-                    key={`${weekIdx}-${dayIdx}`}
-                    className={`calendar-day-trading ${rClass} ${isToday(day.day) ? "today" : ""}`}
-                    data-testid={`cal-day-${day.day}`}
-                  >
+  key={`${weekIdx}-${dayIdx}`}
+  className={`calendar-day-trading ${rClass} ${isToday(day.day) ? "today" : ""}`}
+  data-testid={`cal-day-${day.day}`}
+  style={{ minHeight: "72px" }}
+  onClick={() => {
+    if (onDayClick && day.day !== null && day.stats && day.stats.trades > 0) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day.day).padStart(2, "0")}`;
+      onDayClick(dateStr);
+    }
+  }}
+>
+
                     <div className="flex justify-between items-center mb-0.5">
                       <span className="text-[0.74rem] font-semibold text-[#b8b8b8]">{day.day}</span>
                       {hasData && (
@@ -185,7 +207,7 @@ export function Calendar({ trades }: CalendarProps) {
                       )}
                     </div>
                     {hasData && (
-                      <div className="text-[0.7rem] text-[#b8b8b8]">
+                      <div className="text-[0.69rem] text-[#b8b8b8]">
                         {stats.trades} trade{stats.trades === 1 ? "" : "s"}
                       </div>
                     )}
