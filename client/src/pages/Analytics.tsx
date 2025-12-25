@@ -288,31 +288,36 @@ export default function Analytics() {
   }, [sessionData, modelData, gradeData, symbolData]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#0a0a0a]">
       <div>
-        <h1 className="text-xl font-semibold tracking-wide uppercase">Analytics</h1>
-        <p className="text-[0.82rem] text-[#b8b8b8]">
+        <h1 className="text-2xl font-bold tracking-wide uppercase text-[#eaeaea] font-mono mb-1">Analytics</h1>
+        <p className="text-[0.95rem] text-[#b8b8b8] font-sans opacity-80">
           Performance breakdown by session, model, grade, and symbol
         </p>
       </div>
 
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
-          <button className={`filter-pill ${timeFilter === 'week' ? 'active' : ''}`} onClick={() => setTimeFilter('week')}>This Week</button>
-          <button className={`filter-pill ${timeFilter === 'month' ? 'active' : ''}`} onClick={() => setTimeFilter('month')}>This Month</button>
-          <button className={`filter-pill ${timeFilter === 'all' ? 'active' : ''}`} onClick={() => setTimeFilter('all')}>All Time</button>
-          <button className={`filter-pill ${timeFilter === 'custom' ? 'active' : ''}`} onClick={() => setTimeFilter('custom')}>Custom</button>
+          {['week', 'month', 'all', 'custom'].map((tf) => (
+            <button
+              key={tf}
+              className={`px-4 py-2 rounded-xl font-mono text-[1rem] transition-all duration-150 bg-[#18181b] text-[#eaeaea] hover:bg-[#232323] hover:text-[#eaeaea] focus:outline-none focus:ring-0 ${timeFilter === tf ? 'border border-[1.5px] border-[#a78bfa] text-[#eaeaea] bg-[#18181b]' : 'border-none text-[#b8b8b8]'} `}
+              onClick={() => setTimeFilter(tf as any)}
+            >
+              {tf === 'week' ? 'This Week' : tf === 'month' ? 'This Month' : tf === 'all' ? 'All Time' : 'Custom'}
+            </button>
+          ))}
         </div>
 
         {timeFilter === 'custom' && (
           <div className="flex items-center gap-2">
-            <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="bg-[#0a0a0a] border border-[rgba(60,60,60,0.95)] rounded-xl px-3 py-2 text-[0.82rem]" />
-            <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="bg-[#0a0a0a] border border-[rgba(60,60,60,0.95)] rounded-xl px-3 py-2 text-[0.82rem]" />
-            <button className="btn-ghost-trading" onClick={() => { /* no-op; changes are reactive */ }}>Apply</button>
+            <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="bg-[#18181b] border border-[#232323] rounded-xl px-3 py-2 text-[0.92rem] text-[#eaeaea]" />
+            <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="bg-[#18181b] border border-[#232323] rounded-xl px-3 py-2 text-[0.92rem] text-[#eaeaea]" />
+            <button className="px-4 py-2 rounded-xl font-mono text-[0.92rem] border border-[#232323] bg-[#232323] text-[#eaeaea] shadow-sm hover:bg-[#a78bfa] hover:text-[#18181b] transition-all duration-150">Apply</button>
           </div>
         )}
       </div>
-      <div className="text-[0.82rem] text-[#b8b8b8]">
+      <div className="text-[0.92rem] text-[#b8b8b8] font-mono opacity-80">
         {(() => {
           if (timeFilter === 'all') return 'Showing: All time';
           const fmt = (d?: string) => d || '--';
@@ -337,27 +342,27 @@ export default function Analytics() {
         })()}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <TradingCard title="Win Rate by Session" subtitle="Performance across trading sessions">
-          <div className="h-[220px]">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TradingCard title="Win Rate by Session" subtitle="Performance across trading sessions" className="shadow-xl border border-[1px] border-[#232323]/60 bg-[#18181b]">
+          <div className="h-[220px] rounded-xl bg-gradient-to-br from-[#18181b] to-[#0a0a0a] p-3">
             <canvas ref={sessionRef} data-testid="session-chart" />
           </div>
         </TradingCard>
 
-        <TradingCard title="Win Rate by Model" subtitle="Performance by trading model/strategy">
-          <div className="h-[220px]">
+        <TradingCard title="Win Rate by Model" subtitle="Performance by trading model/strategy" className="shadow-xl border border-[1px] border-[#232323]/60 bg-[#18181b]">
+          <div className="h-[220px] rounded-xl bg-gradient-to-br from-[#18181b] to-[#0a0a0a] p-3">
             <canvas ref={modelRef} data-testid="model-chart" />
           </div>
         </TradingCard>
 
-        <TradingCard title="Win Rate by Setup Grade" subtitle="Performance by setup quality">
-          <div className="h-[220px]">
+        <TradingCard title="Win Rate by Setup Grade" subtitle="Performance by setup quality" className="shadow-xl border border-[1px] border-[#232323]/60 bg-[#18181b]">
+          <div className="h-[220px] rounded-xl bg-gradient-to-br from-[#18181b] to-[#0a0a0a] p-3">
             <canvas ref={gradeRef} data-testid="grade-chart" />
           </div>
         </TradingCard>
 
-        <TradingCard title="Total R by Symbol" subtitle="Cumulative R per trading instrument">
-          <div className="h-[220px]">
+        <TradingCard title="Total R by Symbol" subtitle="Cumulative R per trading instrument" className="shadow-xl border border-[1px] border-[#232323]/60 bg-[#18181b]">
+          <div className="h-[220px] rounded-xl bg-gradient-to-br from-[#18181b] to-[#0a0a0a] p-3">
             <canvas ref={symbolRef} data-testid="symbol-chart" />
           </div>
         </TradingCard>

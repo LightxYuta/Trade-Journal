@@ -77,7 +77,10 @@ export default function Mistakes() {
     priority: index + 1,
   }));
 
-  const totalMistakeR = mistakeStats.reduce((sum, m) => sum + m.totalR, 0);
+  // Sum each trade's realisedR only once if it has at least one mistake
+  const totalMistakeR = filteredTrades
+    .filter((t) => t.mistakes && t.mistakes.length > 0)
+    .reduce((sum, t) => sum + (t.realisedR || 0), 0);
 
   const worstMistake = mistakeStats[0];
   const mostFrequent = [...mistakeStats].sort(
@@ -88,10 +91,8 @@ export default function Mistakes() {
     <div className="p-6">
       <h1 className="text-2xl font-semibold mb-6">Mistakes</h1>
       <p className="text-sm opacity-60 mb-4">
-        These mistakes cost you{" "}
-        <span className="text-red-400 font-medium">
-          {totalMistakeR.toFixed(2)}R
-        </span>
+        Total R lost from all trades with at least one mistake:
+        <span className="text-red-400 font-medium"> {totalMistakeR.toFixed(2)}R</span>
       </p>
 
       <div className="grid grid-cols-4 gap-4 mb-8">
