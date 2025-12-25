@@ -31,6 +31,7 @@ export const settings = pgTable("settings", {
   setupGrades: text("setup_grades").array(),
   keyLevels: text("key_levels").array(),
   mistakes: text("mistakes").array(),
+  tiltThreshold: integer("tilt_threshold").default(2),
 });
 
 export const insertTradeSchema = createInsertSchema(trades).omit({ id: true });

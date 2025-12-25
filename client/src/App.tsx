@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TradeProvider } from "@/contexts/TradeContext";
 import { Sidebar } from "@/components/Sidebar";
+import { YearFilterProvider } from "@/contexts/YearFilterContext";
 import Dashboard from "@/pages/Dashboard";
 import Trades from "@/pages/Trades";
 import Analytics from "@/pages/Analytics";
@@ -44,13 +45,16 @@ function TradingJournalApp() {
   );
 }
 
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <TradeProvider>
-          <TradingJournalApp />
-          <Toaster />
+          <YearFilterProvider>
+            <TradingJournalApp />
+            <Toaster />
+          </YearFilterProvider>
         </TradeProvider>
       </TooltipProvider>
     </QueryClientProvider>

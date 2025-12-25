@@ -275,20 +275,12 @@
 }
 
 .calendar-day-trading.positive {
-  border-color: rgba(0, 210, 138, 0.9);
-  background: radial-gradient(circle at top, rgba(0, 210, 138, 0.25), rgba(5, 15, 10, 0.98));
-  box-shadow: 0 0 28px rgba(0, 210, 138, 0.4);
 }
 
 .calendar-day-trading.negative {
-  border-color: rgba(255, 79, 79, 0.9);
-  background: radial-gradient(circle at top, rgba(255, 79, 79, 0.26), rgba(20, 5, 5, 0.98));
-  box-shadow: 0 0 28px rgba(255, 79, 79, 0.4);
 }
 
 .calendar-day-trading.flat {
-  border-color: rgba(110, 110, 110, 0.9);
-  background: radial-gradient(circle at top, rgba(160, 160, 160, 0.13), rgba(10, 10, 10, 0.98));
 }
 
 .calendar-day-trading.empty {

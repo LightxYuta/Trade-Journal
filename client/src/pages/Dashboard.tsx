@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { X } from "lucide-react";
 import { useTradeContext } from "@/contexts/TradeContext";
+import { useYearFilter } from "@/contexts/YearFilterContext";
 import { TradingCard } from "@/components/TradingCard";
 import { StatCard } from "@/components/StatCard";
 import { FilterPills } from "@/components/FilterPills";
@@ -8,6 +9,7 @@ import { Calendar } from "@/components/Calendar";
 import { EquityCurveChart } from "@/components/EquityCurveChart";
 import { WinLossChart } from "@/components/WinLossChart";
 import { StreakIndicator } from "@/components/StreakIndicator";
+import { YearSelector } from "@/components/YearSelector";
 import { computeStats, getFilteredTrades, formatR, formatDate } from "@/lib/tradeUtils";
 
 const FILTER_OPTIONS = [
@@ -18,8 +20,11 @@ const FILTER_OPTIONS = [
 ];
 
 export default function Dashboard() {
-  const { trades } = useTradeContext();
-  const [filter, setFilter] = useState("all");
+  const { trades, settings } = useTradeContext();
+  const { year } = useYearFilter();
+  const [filter, setFilter] = useState(() => {
+    return localStorage.getItem("tj_time_filter") || "all";
+  });
 
   /* ---------------- TRADER STATE ---------------- */
   const [name, setName] = useState(localStorage.getItem("traderName") || "Trader");
@@ -50,10 +55,21 @@ export default function Dashboard() {
     reader.readAsDataURL(file);
   };
 
+  // Persist filter to localStorage
+  useEffect(() => {
+    localStorage.setItem("tj_time_filter", filter);
+  }, [filter]);
   /* ---------------- STATS ---------------- */
+  // Filter trades by year
+  const yearFilteredTrades = useMemo(() => {
+    if (year === "all") return trades;
+    return trades.filter(t => t.date && new Date(t.date).getFullYear() === year);
+  }, [trades, year]);
+
+  // Use yearFilteredTrades for all stats and charts
   const filteredTrades = useMemo(
-    () => getFilteredTrades(trades, filter),
-    [trades, filter]
+    () => getFilteredTrades(yearFilteredTrades, filter),
+    [yearFilteredTrades, filter]
   );
 
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
@@ -95,13 +111,19 @@ export default function Dashboard() {
   const discipline = useMemo(() => {
     const total = trades.length;
 
-    // Rule violations: any trade that has at least one mistake tag
-    const ruleViolations = trades.reduce((acc, t) => acc + ((t.mistakes && t.mistakes.length > 0) ? 1 : 0), 0);
+    // Rule violations: any trade that has at least one mistake tag, excluding 'Normal Model Loss' as the only tag
+    const ruleViolations = trades.reduce((acc, t) => {
+      if (!t.mistakes || t.mistakes.length === 0) return acc;
+      // Exclude if the only mistake is 'Normal Model Loss'
+      const filtered = t.mistakes.filter(m => m !== "Normal Model Loss");
+      return acc + (filtered.length > 0 ? 1 : 0);
+    }, 0);
 
     // Model-followed: percent of trades that have NO mistakes (i.e., followed the model)
     const modelFollowedPct = total > 0 ? Math.round(((total - ruleViolations) / total) * 100) : 100;
 
-    // Tilt trades: for each calendar date, any trade beyond the 2nd trade is considered a tilt trade
+    // Tilt trades: for each calendar date, any trade beyond the user threshold is considered a tilt trade
+    const tiltThreshold = settings.tiltThreshold ?? 2;
     const perDayCount: Record<string, number> = {};
     trades.forEach(t => {
       const d = t.date || '__no_date__';
@@ -109,11 +131,11 @@ export default function Dashboard() {
     });
     let tiltCount = 0;
     Object.values(perDayCount).forEach(c => {
-      if (c > 2) tiltCount += (c - 2);
+      if (c > tiltThreshold) tiltCount += (c - tiltThreshold);
     });
 
     return { total, ruleViolations, tiltCount, modelFollowedPct };
-  }, [trades]);
+  }, [trades, settings.tiltThreshold]);
 
   const valueColor = (val: number) => {
     if (val > 0.0001) return "positive" as const;
@@ -135,11 +157,14 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <FilterPills
-          options={FILTER_OPTIONS}
-          activeId={filter}
-          onChange={setFilter}
-        />
+        <div className="flex items-center gap-2">
+          <FilterPills
+            options={FILTER_OPTIONS}
+            activeId={filter}
+            onChange={setFilter}
+          />
+          <YearSelector />
+        </div>
       </div>
 
       {/* MAIN GRID */}

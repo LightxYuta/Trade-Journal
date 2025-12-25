@@ -17,19 +17,20 @@ export function FilterPills({ options, activeId, onChange }: FilterPillsProps) {
             data-testid={`filter-${option.id}`}
             className="filter-pill"
             style={{
-              borderColor: isActive ? "rgba(255, 215, 110, 0.9)" : "rgba(90, 90, 90, 0.9)",
+              borderWidth: isActive ? "1.5px" : "1px",
+              borderColor: isActive ? "#a78bfa99" : "rgba(90, 90, 90, 0.9)", // 60% opacity
               background: isActive 
-                ? "radial-gradient(circle at top left, rgba(255, 215, 110, 0.15), rgba(10, 10, 10, 0.98))"
+                ? "radial-gradient(circle at top left, rgba(167, 139, 250, 0.06), rgba(10, 10, 10, 0.98))"
                 : "rgba(10, 10, 10, 0.96)",
               color: isActive ? "#ffffff" : "#b8b8b8",
-              boxShadow: isActive ? "0 10px 28px rgba(255, 215, 110, 0.28)" : "none",
+              boxShadow: isActive ? "0 0 6px 1px #a78bfa33" : "none", // 60% opacity
             }}
           >
             <span 
               className="w-1.5 h-1.5 rounded-full transition-all duration-150"
               style={{
-                background: "#ffd76e",
-                boxShadow: isActive ? "0 0 18px rgba(255, 215, 110, 0.8)" : "none",
+                background: "#a78bfa99",
+                boxShadow: isActive ? "0 0 8px #a78bfa33" : "none",
                 opacity: isActive ? 1 : 0,
                 transform: isActive ? "scale(1)" : "scale(0.3)",
               }}

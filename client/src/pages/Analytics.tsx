@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useRef, useState } from "react";
 import { useTradeContext } from "@/contexts/TradeContext";
+import { useYearFilter } from "@/contexts/YearFilterContext";
 import { TradingCard } from "@/components/TradingCard";
 
 declare global {
@@ -10,6 +11,13 @@ declare global {
 
 export default function Analytics() {
   const { trades } = useTradeContext();
+  const { year } = useYearFilter();
+
+  // Filter trades by year
+  const yearFilteredTrades = useMemo(() => {
+    if (year === "all") return trades;
+    return trades.filter(t => t.date && new Date(t.date).getFullYear() === year);
+  }, [trades, year]);
 
   const [timeFilter, setTimeFilter] = useState<"all" | "week" | "month" | "custom">("all");
   const [customFrom, setCustomFrom] = useState<string>("");
@@ -39,7 +47,7 @@ export default function Analytics() {
   }, [timeFilter, customFrom, customTo]);
 
   const filteredTrades = useMemo(() => {
-    if (!trades || trades.length === 0) return [] as typeof trades;
+    if (!yearFilteredTrades || yearFilteredTrades.length === 0) return [] as typeof trades;
     const now = new Date();
 
     let start: Date | null = null;
@@ -71,7 +79,7 @@ export default function Analytics() {
       }
     }
 
-    return trades.filter(t => {
+    return yearFilteredTrades.filter(t => {
       if (!start && !end) return true; // all
       if (!t.date) return false;
       const td = new Date(t.date);
@@ -79,7 +87,7 @@ export default function Analytics() {
       if (end && td > end) return false;
       return true;
     });
-  }, [trades, timeFilter, customFrom, customTo]);
+  }, [yearFilteredTrades, timeFilter, customFrom, customTo]);
 
   const sessionRef = useRef<HTMLCanvasElement>(null);
   const modelRef = useRef<HTMLCanvasElement>(null);

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useTradeContext } from "@/contexts/TradeContext";
+import { useYearFilter } from "@/contexts/YearFilterContext";
 import { TradingCard } from "@/components/TradingCard";
 import { StatCard } from "@/components/StatCard";
 import { FilterPills } from "@/components/FilterPills";
@@ -31,10 +32,17 @@ const VIEW_OPTIONS = [
 
 export default function AdvancedAnalytics() {
   const { trades } = useTradeContext();
+  const { year } = useYearFilter();
   const [filter, setFilter] = useState("all");
   const [view, setView] = useState("dayOfWeek");
 
-  const filteredTrades = useMemo(() => getFilteredTrades(trades, filter), [trades, filter]);
+  // Filter trades by year
+  const yearFilteredTrades = useMemo(() => {
+    if (year === "all") return trades;
+    return trades.filter(t => t.date && new Date(t.date).getFullYear() === year);
+  }, [trades, year]);
+
+  const filteredTrades = useMemo(() => getFilteredTrades(yearFilteredTrades, filter), [yearFilteredTrades, filter]);
   const stats = useMemo(() => computeStats(filteredTrades), [filteredTrades]);
 
   const performanceData = useMemo(() => {

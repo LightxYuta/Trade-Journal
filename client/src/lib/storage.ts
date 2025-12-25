@@ -44,7 +44,8 @@ export const DEFAULT_SETTINGS: Omit<Settings, "id"> = {
     "1H Consolidation",
     "Trapped OF",
     "Overextended Prev Session/Day"
-  ]
+  ],
+  tiltThreshold: 2,
 };
 
 function normalizeTrade(t: any): Trade {

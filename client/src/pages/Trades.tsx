@@ -1,12 +1,14 @@
 import { useState, useMemo, useRef } from "react";
 import { Plus, X, Filter, Trash2, Edit2 } from "lucide-react";
 import { useTradeContext } from "@/contexts/TradeContext";
+import { useYearFilter } from "@/contexts/YearFilterContext";
 import { TradingCard } from "@/components/TradingCard";
 import { classifyOutcome, formatDate, formatR } from "@/lib/tradeUtils";
 import type { Trade } from "@shared/schema";
 
 export default function Trades() {
   const { trades, settings, addTrade, updateTrade, deleteTrade } = useTradeContext();
+  const { year } = useYearFilter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -37,8 +39,14 @@ export default function Trades() {
     notes: "",
   });
 
+  // Filter trades by year
+  const yearFilteredTrades = useMemo(() => {
+    if (year === "all") return trades;
+    return trades.filter(t => t.date && new Date(t.date).getFullYear() === year);
+  }, [trades, year]);
+
   const filteredTrades = useMemo(() => {
-    const result = trades.filter(t => {
+    const result = yearFilteredTrades.filter(t => {
       if (filterSession && t.session !== filterSession) return false;
       if (filterModel && t.model !== filterModel) return false;
       if (filterAccount && t.account !== filterAccount) return false;
@@ -60,7 +68,7 @@ export default function Trades() {
       }
       return (b.createdAt || 0) - (a.createdAt || 0);
     });
-  }, [trades, filterSession, filterModel, filterAccount, filterPosition, filterFrom, filterTo]);
+  }, [yearFilteredTrades, filterSession, filterModel, filterAccount, filterPosition, filterFrom, filterTo]);
 
   const clearFilters = () => {
     setFilterSession("");

@@ -184,12 +184,52 @@ export function Calendar({ trades, onDayClick }: CalendarProps) {
                 const r = stats?.totalR || 0;
                 const rClass = r > 0.0001 ? "positive" : r < -0.0001 ? "negative" : hasData ? "flat" : "";
 
+                // Color glow and border for positive, negative, and neutral days (50% of original, but with more visible blur)
+                // Use the same extremely subtle settings as before, but increase alpha to 0.25 for a gentle but visible effect
+                let boxShadow = undefined;
+                let borderColor = undefined;
+                let borderWidth = undefined;
+                let borderStyle = undefined;
+                const totalR = day.stats?.totalR ?? 0;
+                const tradeCount = day.stats?.trades ?? 0;
+                if (totalR > 0) {
+                  boxShadow = "0 0 2px 0px #00ffb340"; // subtle green glow, alpha 0.25
+                  borderColor = "#00ffb340";
+                  borderWidth = "1.5px";
+                  borderStyle = "solid";
+                } else if (totalR < 0) {
+                  boxShadow = "0 0 2px 0px #ff3b3b40"; // subtle red glow, alpha 0.25
+                  borderColor = "#ff3b3b40";
+                  borderWidth = "1.5px";
+                  borderStyle = "solid";
+                } else if (totalR === 0 && tradeCount > 0) {
+                  boxShadow = "0 0 2px 0px #ffd70040"; // subtle golden glow, alpha 0.25
+                  borderColor = "#ffd70040";
+                  borderWidth = "1.5px";
+                  borderStyle = "solid";
+                }
+
+                // If today, override border and glow to be a very subtle gold (20% of current)
+                if (isToday(day.day)) {
+                  boxShadow = "0 0 2px 0px #ffd70033"; // gold glow, alpha 0.2
+                  borderColor = "#ffd70033";
+                  borderWidth = "1.5px";
+                  borderStyle = "solid";
+                }
+
                 return (
                   <div
   key={`${weekIdx}-${dayIdx}`}
   className={`calendar-day-trading ${rClass} ${isToday(day.day) ? "today" : ""}`}
   data-testid={`cal-day-${day.day}`}
-  style={{ minHeight: "72px" }}
+  style={{
+    minHeight: "72px",
+    boxShadow,
+    borderColor,
+    borderWidth,
+    borderStyle,
+    background: undefined, // override any background from CSS if needed
+  }}
   onClick={() => {
     if (onDayClick && day.day !== null && day.stats && day.stats.trades > 0) {
       const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day.day).padStart(2, "0")}`;

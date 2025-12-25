@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { useTradeContext } from "@/contexts/TradeContext";
 import { TradingCard } from "@/components/TradingCard";
@@ -19,6 +19,9 @@ export default function Settings() {
   const { settings, updateSettings, resetSettings, clearAllTrades, fullReset } = useTradeContext();
   const [editingKey, setEditingKey] = useState<SettingsKey | null>(null);
   const [editValues, setEditValues] = useState<string[]>([]);
+  const [tiltInput, setTiltInput] = useState(settings.tiltThreshold?.toString() ?? "2");
+  const [tiltSaved, setTiltSaved] = useState(false);
+  const [tiltFocused, setTiltFocused] = useState(false);
 
   const openEditor = (key: SettingsKey) => {
     setEditingKey(key);
@@ -69,6 +72,19 @@ export default function Settings() {
     }
   };
 
+  const handleTiltSave = () => {
+    const num = Math.max(1, Math.min(20, Number(tiltInput)));
+    updateSettings({ tiltThreshold: num });
+    setTiltInput(num.toString());
+    setTiltSaved(true);
+    setTimeout(() => setTiltSaved(false), 1200);
+  };
+
+  // Keep input in sync with settings
+  useEffect(() => {
+    setTiltInput(settings.tiltThreshold?.toString() ?? "2");
+  }, [settings.tiltThreshold]);
+
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
       <div>
@@ -102,6 +118,36 @@ export default function Settings() {
               </div>
             </button>
           ))}
+          {/* Tilt Trade Threshold Setting */}
+          <div className="p-3 rounded-xl border border-[rgba(60,60,60,0.95)] flex flex-col justify-between transition-all duration-150" style={{ background: "rgba(10, 10, 10, 0.96)" }}>
+            <div className="text-[0.82rem] font-medium mb-1">Tilt Trade Threshold</div>
+            <div className="text-[0.72rem] text-[#b8b8b8] mb-2">Number of trades per day after which trades are considered tilt trades.</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={tiltInput}
+                onChange={e => setTiltInput(e.target.value.replace(/[^\d]/g, ""))}
+                onFocus={() => setTiltFocused(true)}
+                onBlur={() => setTiltFocused(false)}
+                className={`w-20 px-2 py-1 rounded border border-[rgba(90,90,90,0.9)] bg-[#18181b] text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#a78bfa]/40 ${tiltFocused ? 'ring-2 ring-[#a78bfa]/40' : ''}`}
+                style={{ width: 60 }}
+                placeholder="2"
+              />
+              {(tiltFocused || tiltInput !== (settings.tiltThreshold?.toString() ?? "2")) && tiltInput !== "" && (
+                <button
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={handleTiltSave}
+                  className={`px-3 py-1 rounded bg-[#a78bfa] text-white text-xs font-medium transition-all duration-150 ${tiltSaved ? 'bg-green-500' : ''}`}
+                  style={{ minWidth: 48 }}
+                  disabled={tiltInput === "" || Number(tiltInput) === settings.tiltThreshold}
+                >
+                  {tiltSaved ? '✓ Saved' : 'Save'}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </TradingCard>
 
